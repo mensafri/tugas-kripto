@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-// Hard‑coded group & members
+// Hard-coded group & members
 const GROUP_NAME = "Kelompok 7";
 const MEMBERS = [
 	{ name: "Muhammad Amin Syaifani", nim: "C2C022029" },
@@ -25,18 +25,65 @@ export default function HomePage() {
 	// Keep only A–Z, uppercase
 	const sanitize = (s: string) => s.toUpperCase().replace(/[^A-Z]/g, "");
 
-	const vigenere = (text: string, key: string, decrypt = false) => {
+	/* =========================================================
+     COLUMNAR TRANSPOSITION
+     ---------------------------------------------------------
+     - Enkripsi:  tulis teks per-baris (row wise) dengan kolom
+                  = panjang key, lalu baca per-kolom menurut
+                  urutan alfabet huruf kunci.
+     - Dekripsi:  bangun kembali matriks kolom berdasarkan urutan
+                  tadi, lalu baca per-baris.
+     ========================================================= */
+
+	const getColumnOrder = (k: string) =>
+		k
+			.split("")
+			.map((ch, idx) => ({ ch, idx }))
+			.sort((a, b) => a.ch.localeCompare(b.ch)) // A-Z
+			.map((o) => o.idx);
+
+	const encrypt = (text: string, k: string) => {
 		const t = sanitize(text);
-		const k = sanitize(key);
-		if (!k) return "";
+		const keySan = sanitize(k);
+		if (!keySan) return "";
+		const cols = keySan.length;
+		const rows = Math.ceil(t.length / cols);
+		const padChar = "X";
+		const padded = t.padEnd(rows * cols, padChar);
+
+		const order = getColumnOrder(keySan);
 		let out = "";
-		let ki = 0;
-		for (let i = 0; i < t.length; i++) {
-			const tC = t.charCodeAt(i) - 65;
-			const kC = k.charCodeAt(ki % k.length) - 65;
-			const shift = decrypt ? (tC - kC + 26) % 26 : (tC + kC) % 26;
-			out += String.fromCharCode(shift + 65);
-			ki++;
+		for (const col of order) {
+			for (let r = 0; r < rows; r++) {
+				out += padded[r * cols + col];
+			}
+		}
+		return out;
+	};
+
+	const decrypt = (ct: string, k: string) => {
+		const c = sanitize(ct);
+		const keySan = sanitize(k);
+		if (!keySan) return "";
+		const cols = keySan.length;
+		if (c.length % cols !== 0) return ""; // data tak valid
+		const rows = c.length / cols;
+
+		const order = getColumnOrder(keySan);
+		// Alokasikan tiap kolom sepanjang 'rows'
+		const colData: string[] = Array(cols).fill("");
+		let cursor = 0;
+		for (const col of order) {
+			colData[col] = c.slice(cursor, cursor + rows);
+			cursor += rows;
+		}
+
+		// Rekonstruksi teks baris-demi-baris
+		let out = "";
+		for (let r = 0; r < rows; r++) {
+			for (let cIdx = 0; cIdx < cols; cIdx++) {
+				out += colData[cIdx][r];
+			}
 		}
 		return out;
 	};
@@ -48,11 +95,11 @@ export default function HomePage() {
 		setDecrypted("");
 	};
 	const handleEncrypt = () => {
-		setCipher(vigenere(plain, key, false));
+		setCipher(encrypt(plain, key));
 		setDecrypted("");
 	};
 	const handleDecrypt = () => {
-		setDecrypted(vigenere(cipher, key, true));
+		setDecrypted(decrypt(cipher, key));
 	};
 	const handleClose = () => {
 		if (typeof window !== "undefined") window.close();
@@ -62,8 +109,8 @@ export default function HomePage() {
 		<div className="max-w-2xl mx-auto py-8 space-y-8">
 			{/* HEADER */}
 			<div className="text-center space-y-1">
-				<h1 className="text-3xl font-bold">TUGAS 2 KRIPTOGRAFI</h1>
-				<h2 className="text-2xl font-semibold">APLIKASI VIGENERE CHIPER</h2>
+				<h1 className="text-3xl font-bold">TUGAS 2 KRIPTOGRAFI</h1>
+				<h2 className="text-2xl font-semibold">APLIKASI TRANSPOSISI CHIPER</h2>
 			</div>
 
 			<div className="flex items-center justify-center gap-2">
