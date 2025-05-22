@@ -5,7 +5,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-// Hard-coded group & members
+/* =========================================================
+   Static data
+   ========================================================= */
 const GROUP_NAME = "Kelompok 7";
 const MEMBERS = [
 	{ name: "Muhammad Amin Syaifani", nim: "C2C022029" },
@@ -15,109 +17,127 @@ const MEMBERS = [
 	{ name: "Syafrie Abdunnasir Jawad", nim: "C2C022011" },
 ];
 
+/* =========================================================
+   Helpers
+   ========================================================= */
+// Convert File → data URL (base64)
+const fileToDataUrl = (file: File): Promise<string> =>
+	new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = reject;
+		reader.readAsDataURL(file);
+	});
+
+// Column order for transposition cipher (A-Z)
+const getColumnOrder = (k: string) =>
+	k
+		.toUpperCase()
+		.replace(/[^A-Z]/g, "")
+		.split("")
+		.map((ch, idx) => ({ ch, idx }))
+		.sort((a, b) => a.ch.localeCompare(b.ch))
+		.map((o) => o.idx);
+
+/* =========================================================
+   Cipher core (works on arbitrary strings, incl. base64)
+   ========================================================= */
+const encrypt = (text: string, k: string) => {
+	if (!k) return "";
+	const cols = k.length;
+	const rows = Math.ceil(text.length / cols);
+	const padChar = "="; // safe for base64
+	const padded = text.padEnd(rows * cols, padChar);
+
+	const order = getColumnOrder(k);
+	let out = "";
+	for (const col of order) {
+		for (let r = 0; r < rows; r++) {
+			out += padded[r * cols + col];
+		}
+	}
+	return out;
+};
+
+const decrypt = (ct: string, k: string) => {
+	if (!k) return "";
+	const cols = k.length;
+	if (ct.length % cols !== 0) return ""; // invalid data
+	const rows = ct.length / cols;
+
+	const order = getColumnOrder(k);
+	const colData: string[] = Array(cols).fill("");
+	let cursor = 0;
+	for (const col of order) {
+		colData[col] = ct.slice(cursor, cursor + rows);
+		cursor += rows;
+	}
+
+	let out = "";
+	for (let r = 0; r < rows; r++) {
+		for (let cIdx = 0; cIdx < cols; cIdx++) {
+			out += colData[cIdx][r];
+		}
+	}
+	return out;
+};
+
+/* =========================================================
+   Component
+   ========================================================= */
 export default function HomePage() {
-	// Cipher state
+	// States
 	const [key, setKey] = useState("");
-	const [plain, setPlain] = useState("");
+	const [imageDataUrl, setImageDataUrl] = useState<string | null>(null); // plaintext (data-URL)
 	const [cipher, setCipher] = useState("");
 	const [decrypted, setDecrypted] = useState("");
 
-	// Keep only A–Z, uppercase
-	const sanitize = (s: string) => s.toUpperCase().replace(/[^A-Z]/g, "");
-
-	/* =========================================================
-     COLUMNAR TRANSPOSITION
-     ---------------------------------------------------------
-     - Enkripsi:  tulis teks per-baris (row wise) dengan kolom
-                  = panjang key, lalu baca per-kolom menurut
-                  urutan alfabet huruf kunci.
-     - Dekripsi:  bangun kembali matriks kolom berdasarkan urutan
-                  tadi, lalu baca per-baris.
-     ========================================================= */
-
-	const getColumnOrder = (k: string) =>
-		k
-			.split("")
-			.map((ch, idx) => ({ ch, idx }))
-			.sort((a, b) => a.ch.localeCompare(b.ch)) // A-Z
-			.map((o) => o.idx);
-
-	const encrypt = (text: string, k: string) => {
-		const t = sanitize(text);
-		const keySan = sanitize(k);
-		if (!keySan) return "";
-		const cols = keySan.length;
-		const rows = Math.ceil(t.length / cols);
-		const padChar = "X";
-		const padded = t.padEnd(rows * cols, padChar);
-
-		const order = getColumnOrder(keySan);
-		let out = "";
-		for (const col of order) {
-			for (let r = 0; r < rows; r++) {
-				out += padded[r * cols + col];
-			}
-		}
-		return out;
-	};
-
-	const decrypt = (ct: string, k: string) => {
-		const c = sanitize(ct);
-		const keySan = sanitize(k);
-		if (!keySan) return "";
-		const cols = keySan.length;
-		if (c.length % cols !== 0) return ""; // data tak valid
-		const rows = c.length / cols;
-
-		const order = getColumnOrder(keySan);
-		// Alokasikan tiap kolom sepanjang 'rows'
-		const colData: string[] = Array(cols).fill("");
-		let cursor = 0;
-		for (const col of order) {
-			colData[col] = c.slice(cursor, cursor + rows);
-			cursor += rows;
-		}
-
-		// Rekonstruksi teks baris-demi-baris
-		let out = "";
-		for (let r = 0; r < rows; r++) {
-			for (let cIdx = 0; cIdx < cols; cIdx++) {
-				out += colData[cIdx][r];
-			}
-		}
-		return out;
-	};
-
-	// Button handlers
-	const handleClear = () => {
-		setPlain("");
+	/* ---------------- File handler ---------------- */
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const dataUrl = await fileToDataUrl(file);
+		setImageDataUrl(dataUrl);
 		setCipher("");
 		setDecrypted("");
 	};
-	const handleEncrypt = () => {
-		setCipher(encrypt(plain, key));
+
+	/* ---------------- Buttons ---------------- */
+	const handleClear = () => {
+		setImageDataUrl(null);
+		setCipher("");
 		setDecrypted("");
 	};
+
+	const handleEncrypt = () => {
+		if (!imageDataUrl) return;
+		setCipher(encrypt(imageDataUrl, key));
+		setDecrypted("");
+	};
+
 	const handleDecrypt = () => {
+		if (!cipher) return;
 		setDecrypted(decrypt(cipher, key));
 	};
+
 	const handleClose = () => {
 		if (typeof window !== "undefined") window.close();
 	};
 
+	/* ---------------- UI ---------------- */
 	return (
 		<div className="max-w-2xl mx-auto py-8 space-y-8">
 			{/* HEADER */}
 			<div className="text-center space-y-1">
 				<h1 className="text-3xl font-bold">TUGAS 2 KRIPTOGRAFI</h1>
-				<h2 className="text-2xl font-semibold">APLIKASI TRANSPOSISI CHIPER</h2>
+				<h2 className="text-2xl font-semibold">APLIKASI TRANSPOSISI CIPHER</h2>
 			</div>
 
+			{/* GROUP INFO */}
 			<div className="flex items-center justify-center gap-2">
 				<span className="font-medium">KELOMPOK:</span>
 				<span>{GROUP_NAME}</span>
 			</div>
-
 			<div className="space-y-1">
 				{MEMBERS.map((m, i) => (
 					<div
@@ -132,27 +152,38 @@ export default function HomePage() {
 
 			{/* CIPHER UI */}
 			<div className="space-y-4">
+				{/* KEY */}
 				<div className="space-y-2">
 					<label className="block font-semibold">Key</label>
 					<input
 						type="text"
 						className="w-full px-3 py-2 border rounded"
-						placeholder="Masukkan key"
+						placeholder="Masukkan key (A-Z)"
 						value={key}
 						onChange={(e) => setKey(e.target.value)}
 					/>
 				</div>
 
+				{/* FILE UPLOAD */}
 				<div className="space-y-2">
-					<label className="block font-semibold">Plaintext</label>
-					<Textarea
-						placeholder="Ketik plaintext"
-						value={plain}
-						onChange={(e) => setPlain(e.target.value)}
-						rows={4}
+					<label className="block font-semibold">Gambar (Plain Image)</label>
+					<input
+						type="file"
+						accept="image/*"
+						onChange={handleFileChange}
 					/>
+					{imageDataUrl && (
+						<div className="pt-2">
+							<img
+								src={imageDataUrl}
+								alt="Uploaded preview"
+								className="max-h-64 mx-auto rounded border"
+							/>
+						</div>
+					)}
 				</div>
 
+				{/* ACTION BUTTONS */}
 				<div className="flex gap-2">
 					<Button
 						onClick={handleClear}
@@ -162,30 +193,35 @@ export default function HomePage() {
 					<Button onClick={handleEncrypt}>PB2: Enkripsi</Button>
 				</div>
 
+				{/* CIPHERTEXT */}
 				<div className="space-y-2">
 					<label className="block font-semibold">Ciphertext</label>
 					<Textarea
 						placeholder="Hasil ciphertext"
 						value={cipher}
 						readOnly
-						rows={4}
+						rows={6}
 					/>
 				</div>
 
+				{/* DECRYPT BUTTON */}
 				<div className="flex gap-2">
 					<Button onClick={handleDecrypt}>PB3: Dekripsi</Button>
 				</div>
 
-				<div className="space-y-2">
-					<label className="block font-semibold">Decrypted Text</label>
-					<Textarea
-						placeholder="Hasil dekripsi"
-						value={decrypted}
-						readOnly
-						rows={4}
-					/>
-				</div>
+				{/* DECRYPTED PREVIEW */}
+				{decrypted && (
+					<div className="space-y-2">
+						<label className="block font-semibold">Decrypted Image</label>
+						<img
+							src={decrypted}
+							alt="Decrypted preview"
+							className="max-h-64 mx-auto rounded border"
+						/>
+					</div>
+				)}
 
+				{/* CLOSE */}
 				<div className="text-center">
 					<Button
 						onClick={handleClose}
