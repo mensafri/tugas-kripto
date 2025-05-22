@@ -5,9 +5,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-/* =========================================================
-   Static data
-   ========================================================= */
 const GROUP_NAME = "Kelompok 7";
 const MEMBERS = [
 	{ name: "Muhammad Amin Syaifani", nim: "C2C022029" },
@@ -17,10 +14,7 @@ const MEMBERS = [
 	{ name: "Syafrie Abdunnasir Jawad", nim: "C2C022011" },
 ];
 
-/* =========================================================
-   Helpers
-   ========================================================= */
-// Convert File → data URL (base64)
+// contoh: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB...
 const fileToDataUrl = (file: File): Promise<string> =>
 	new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -29,7 +23,6 @@ const fileToDataUrl = (file: File): Promise<string> =>
 		reader.readAsDataURL(file);
 	});
 
-// Column order for transposition cipher (A-Z)
 const getColumnOrder = (k: string) =>
 	k
 		.toUpperCase()
@@ -39,14 +32,11 @@ const getColumnOrder = (k: string) =>
 		.sort((a, b) => a.ch.localeCompare(b.ch))
 		.map((o) => o.idx);
 
-/* =========================================================
-   Cipher core (works on arbitrary strings, incl. base64)
-   ========================================================= */
 const encrypt = (text: string, k: string) => {
 	if (!k) return "";
 	const cols = k.length;
 	const rows = Math.ceil(text.length / cols);
-	const padChar = "="; // safe for base64
+	const padChar = "=";
 	const padded = text.padEnd(rows * cols, padChar);
 
 	const order = getColumnOrder(k);
@@ -62,7 +52,7 @@ const encrypt = (text: string, k: string) => {
 const decrypt = (ct: string, k: string) => {
 	if (!k) return "";
 	const cols = k.length;
-	if (ct.length % cols !== 0) return ""; // invalid data
+	if (ct.length % cols !== 0) return "";
 	const rows = ct.length / cols;
 
 	const order = getColumnOrder(k);
@@ -82,17 +72,13 @@ const decrypt = (ct: string, k: string) => {
 	return out;
 };
 
-/* =========================================================
-   Component
-   ========================================================= */
 export default function HomePage() {
 	// States
 	const [key, setKey] = useState("");
-	const [imageDataUrl, setImageDataUrl] = useState<string | null>(null); // plaintext (data-URL)
+	const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
 	const [cipher, setCipher] = useState("");
 	const [decrypted, setDecrypted] = useState("");
 
-	/* ---------------- File handler ---------------- */
 	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
@@ -102,7 +88,6 @@ export default function HomePage() {
 		setDecrypted("");
 	};
 
-	/* ---------------- Buttons ---------------- */
 	const handleClear = () => {
 		setImageDataUrl(null);
 		setCipher("");
@@ -124,16 +109,13 @@ export default function HomePage() {
 		if (typeof window !== "undefined") window.close();
 	};
 
-	/* ---------------- UI ---------------- */
 	return (
 		<div className="max-w-2xl mx-auto py-8 space-y-8">
-			{/* HEADER */}
 			<div className="text-center space-y-1">
 				<h1 className="text-3xl font-bold">TUGAS 2 KRIPTOGRAFI</h1>
 				<h2 className="text-2xl font-semibold">APLIKASI TRANSPOSISI CIPHER</h2>
 			</div>
 
-			{/* GROUP INFO */}
 			<div className="flex items-center justify-center gap-2">
 				<span className="font-medium">KELOMPOK:</span>
 				<span>{GROUP_NAME}</span>
@@ -150,7 +132,6 @@ export default function HomePage() {
 				))}
 			</div>
 
-			{/* CIPHER UI */}
 			<div className="space-y-4">
 				{/* KEY */}
 				<div className="space-y-2">
@@ -164,7 +145,6 @@ export default function HomePage() {
 					/>
 				</div>
 
-				{/* FILE UPLOAD */}
 				<div className="space-y-2">
 					<label className="block font-semibold">Gambar (Plain Image)</label>
 					<input
@@ -183,7 +163,6 @@ export default function HomePage() {
 					)}
 				</div>
 
-				{/* ACTION BUTTONS */}
 				<div className="flex gap-2">
 					<Button
 						onClick={handleClear}
@@ -193,7 +172,6 @@ export default function HomePage() {
 					<Button onClick={handleEncrypt}>PB2: Enkripsi</Button>
 				</div>
 
-				{/* CIPHERTEXT */}
 				<div className="space-y-2">
 					<label className="block font-semibold">Ciphertext</label>
 					<Textarea
@@ -204,12 +182,10 @@ export default function HomePage() {
 					/>
 				</div>
 
-				{/* DECRYPT BUTTON */}
 				<div className="flex gap-2">
 					<Button onClick={handleDecrypt}>PB3: Dekripsi</Button>
 				</div>
 
-				{/* DECRYPTED PREVIEW */}
 				{decrypted && (
 					<div className="space-y-2">
 						<label className="block font-semibold">Decrypted Image</label>
@@ -221,7 +197,6 @@ export default function HomePage() {
 					</div>
 				)}
 
-				{/* CLOSE */}
 				<div className="text-center">
 					<Button
 						onClick={handleClose}
